@@ -1,0 +1,84 @@
+---
+# ─────────────────────────────────────────────────────────────────
+# Backend Deployment
+# IMAGE is replaced at deploy time by GitHub Actions:
+#   sed -i 's|IMAGE_PLACEHOLDER|<ecr-uri>:<tag>|g' this file
+# ─────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: python-app
+  labels:
+    app: backend
+spec:
+  replicas: 2                   # Run 2 copies for availability
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate         # Zero-downtime deploys
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: BACKEND_IMAGE_PLACEHOLDER   # Replaced by GitHub Actions
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            # MongoDB connection string pulled from the Secret
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_URI
+            - name: ENV
+              value: production
+          # Health checks – Kubernetes restarts the pod if these fail
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+# ─────────────────────────────────────────────────────────────────
+# Backend Service  –  ClusterIP (internal only)
+# The frontend nginx proxies /api/* to this service.
+# We do NOT expose the backend directly to the internet.
+# ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: python-app
+spec:
+  selector:
+    app: backend
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+

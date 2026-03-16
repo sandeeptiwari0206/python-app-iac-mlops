@@ -1,0 +1,76 @@
+---
+# ─────────────────────────────────────────────────────────────────
+# Frontend Deployment
+# ─────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: python-app
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: FRONTEND_IMAGE_PLACEHOLDER   # Replaced by GitHub Actions
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+
+---
+# ─────────────────────────────────────────────────────────────────
+# Frontend Service  –  LoadBalancer
+# AWS will provision an Elastic Load Balancer automatically.
+# After deploy, run: kubectl get svc -n python-app
+# Copy the EXTERNAL-IP to access your app in a browser.
+# ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: python-app
+  annotations:
+    # Use a Classic ELB (simpler for beginners)
+    service.beta.kubernetes.io/aws-load-balancer-type: "classic"
+spec:
+  selector:
+    app: frontend
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+

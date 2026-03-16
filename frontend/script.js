@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "/api";
 const output = document.getElementById("output");
 
 function register() {
