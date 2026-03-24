@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Python App — MLOps Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --card: #21253a;
+      --accent: #6c63ff; --accent2: #00d4aa; --accent3: #ff6b6b;
+      --text: #e8eaf6; --muted: #8892b0; --border: #2d3148;
+      --green: #00d4aa; --yellow: #ffd166; --red: #ef476f;
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.2rem; font-weight: 600; color: var(--text); }
+    header h1 span { color: var(--accent); }
+    .version-badge { background: var(--accent); color: white; font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    .metric-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+    .metric-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .metric-card .value { font-size: 1.8rem; font-weight: 700; }
+    .metric-card .sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+    .green { color: var(--green); } .yellow { color: var(--yellow); } .red { color: var(--red); } .purple { color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .card h3 { font-size: 0.9rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1.25rem; }
+    .pipeline-steps { display: flex; flex-direction: column; gap: 0.75rem; }
+    .step { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); transition: border-color 0.3s; }
+    .step.active { border-color: var(--accent); }
+    .step.done { border-color: var(--green); }
+    .step.failed { border-color: var(--red); }
+    .step-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+    .step-icon.idle { background: var(--border); color: var(--muted); }
+    .step-icon.active { background: var(--accent); color: white; }
+    .step-icon.done { background: var(--green); color: #0f1117; }
+    .step-icon.failed { background: var(--red); color: white; }
+    .step-text { flex: 1; }
+    .step-text .name { font-size: 0.85rem; font-weight: 500; }
+    .step-text .desc { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .step-duration { font-size: 0.75rem; color: var(--muted); }
+    .predict-form { display: flex; flex-direction: column; gap: 1rem; }
+    .predict-form input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+    .predict-form input:focus { border-color: var(--accent); }
+    .predict-form button { background: var(--accent); color: white; border: none; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .predict-form button:hover { opacity: 0.85; }
+    .result-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-family: monospace; font-size: 0.8rem; color: var(--accent2); min-height: 80px; white-space: pre-wrap; }
+    .runs-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .runs-table th { color: var(--muted); text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); font-weight: 500; }
+    .runs-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); }
+    .badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+    .badge.finished { background: rgba(0,212,170,0.15); color: var(--green); }
+    .badge.running { background: rgba(108,99,255,0.15); color: var(--accent); }
+    .mlflow-link { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); color: var(--accent2); text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.8rem; font-weight: 500; transition: border-color 0.2s; }
+    .mlflow-link:hover { border-color: var(--accent2); }
+    .links-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; }
+    .links-row span { font-size: 0.8rem; color: var(--muted); }
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+  </style>
+</head>
+<body>
+<header>
+  <h1><span>MLOps</span> Dashboard — Python App</h1>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <span><span class="status-dot"></span><span id="health-status" style="font-size:0.8rem">Checking...</span></span>
+    <span class="version-badge" id="version-badge">v1.0.0</span>
+  </div>
+</header>
+
+<main>
+  <div class="links-row">
+    <span>External dashboards:</span>
+    <a class="mlflow-link" href="http://localhost:5001" target="_blank">MLflow Tracking UI</a>
+    <a class="mlflow-link" href="http://localhost:3001" target="_blank">Grafana Monitoring</a>
+    <a class="mlflow-link" href="http://localhost:9090" target="_blank">Prometheus Metrics</a>
+  </div>
+
+  <div class="grid-4">
+    <div class="metric-card">
+      <div class="label">App Status</div>
+      <div class="value green" id="m-status">—</div>
+      <div class="sub" id="m-build">build: —</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">MLflow Runs</div>
+      <div class="value purple" id="m-runs">—</div>
+      <div class="sub">tracked experiments</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Environment</div>
+      <div class="value yellow" id="m-env">—</div>
+      <div class="sub">deployment target</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Pipeline</div>
+      <div class="value green" id="m-pipeline">Ready</div>
+      <div class="sub">GitHub Actions</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>MLOps Pipeline Stages</h3>
+      <div class="pipeline-steps" id="pipeline-steps">
+        <div class="step done" id="s-source">
+          <div class="step-icon done">1</div>
+          <div class="step-text"><div class="name">Source control</div><div class="desc">Git push triggers workflow</div></div>
+          <div class="step-duration">instant</div>
+        </div>
+        <div class="step done" id="s-build">
+          <div class="step-icon done">2</div>
+          <div class="step-text"><div class="name">Docker build</div><div class="desc">Build backend + frontend images</div></div>
+          <div class="step-duration">~2m</div>
+        </div>
+        <div class="step done" id="s-track">
+          <div class="step-icon done">3</div>
+          <div class="step-text"><div class="name">MLflow tracking</div><div class="desc">Log params, metrics, artifacts</div></div>
+          <div class="step-duration">~30s</div>
+        </div>
+        <div class="step done" id="s-registry">
+          <div class="step-icon done">4</div>
+          <div class="step-text"><div class="name">Image registry</div><div class="desc">Push to Docker Hub</div></div>
+          <div class="step-duration">~1m</div>
+        </div>
+        <div class="step done" id="s-deploy">
+          <div class="step-icon done">5</div>
+          <div class="step-text"><div class="name">Deploy</div><div class="desc">EC2 via docker compose</div></div>
+          <div class="step-duration">~1m</div>
+        </div>
+        <div class="step done" id="s-monitor">
+          <div class="step-icon done">6</div>
+          <div class="step-text"><div class="name">Monitor</div><div class="desc">Prometheus + Grafana</div></div>
+          <div class="step-duration">live</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1.5rem">
+      <div class="card">
+        <h3>Test MLflow Tracking</h3>
+        <div class="predict-form">
+          <input type="number" id="predict-input" placeholder="Enter a number (e.g. 42)" value="42"/>
+          <button onclick="runPredict()">Run Prediction + Track in MLflow</button>
+          <div class="result-box" id="predict-result">Result will appear here...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Recent MLflow Runs</h3>
+        <table class="runs-table">
+          <thead><tr><th>Run ID</th><th>Experiment</th><th>Status</th><th>Metric</th></tr></thead>
+          <tbody id="runs-tbody"><tr><td colspan="4" style="color:var(--muted);text-align:center;padding:1rem">Loading runs...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Python App — MLOps Edition &nbsp;|&nbsp; MLflow + Docker + GitHub Actions + EC2</footer>
+
+<script>
+  const API = '';
+
+  async function checkHealth() {
+    try {
+      const r = await fetch(API + '/health');
+      const d = await r.json();
+      document.getElementById('health-status').textContent = 'Backend healthy';
+      document.getElementById('version-badge').textContent = 'v' + d.version;
+      document.getElementById('m-status').textContent = d.status;
+      document.getElementById('m-build').textContent = 'build: ' + d.build_id;
+      document.getElementById('m-env').textContent = 'production';
+    } catch(e) {
+      document.getElementById('health-status').textContent = 'Connecting...';
+      document.getElementById('m-status').textContent = 'Starting';
+    }
+  }
+
+  async function loadRuns() {
+    try {
+      const r = await fetch(API + '/api/runs');
+      const d = await r.json();
+      document.getElementById('m-runs').textContent = d.total || 0;
+      const tbody = document.getElementById('runs-tbody');
+      if (!d.runs || d.runs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);text-align:center;padding:1rem">No runs yet — make a prediction!</td></tr>';
+        return;
+      }
+      tbody.innerHTML = d.runs.map(run => {
+        const metricStr = Object.entries(run.metrics || {}).map(([k,v]) => k+': '+v.toFixed(2)).join(', ') || '—';
+        return `<tr>
+          <td style="font-family:monospace;color:var(--accent2)">${run.run_id}</td>
+          <td style="color:var(--muted)">${run.experiment}</td>
+          <td><span class="badge finished">${run.status}</span></td>
+          <td style="color:var(--muted);font-size:0.75rem">${metricStr}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {
+      document.getElementById('m-runs').textContent = '—';
+    }
+  }
+
+  async function runPredict() {
+    const val = document.getElementById('predict-input').value;
+    const box = document.getElementById('predict-result');
+    box.textContent = 'Sending to backend + MLflow...';
+    try {
+      const r = await fetch(API + '/api/predict', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({input: parseFloat(val)})
+      });
+      const d = await r.json();
+      box.textContent = JSON.stringify(d, null, 2);
+      setTimeout(loadRuns, 1000);
+    } catch(e) {
+      box.textContent = 'Error: ' + e.message + '\n\nMake sure the backend is running.';
+    }
+  }
+
+  checkHealth();
+  loadRuns();
+  setInterval(checkHealth, 15000);
+  setInterval(loadRuns, 20000);
+</script>
+</body>
+</html>

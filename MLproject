@@ -1,0 +1,52 @@
+name: python-app-mlops
+
+conda_env: conda.yml
+
+entry_points:
+  build:
+    parameters:
+      version: {type: string, default: "1.0.0"}
+      build_id: {type: string, default: "local"}
+      env: {type: string, default: "production"}
+    command: >
+      python mlops/pipelines/pipeline.py
+        --stage build
+        --version {version}
+        --build-id {build_id}
+        --env {env}
+
+  test:
+    parameters:
+      version: {type: string, default: "1.0.0"}
+      build_id: {type: string, default: "local"}
+      env: {type: string, default: "production"}
+    command: >
+      python mlops/pipelines/pipeline.py
+        --stage test
+        --version {version}
+        --build-id {build_id}
+        --env {env}
+
+  deploy:
+    parameters:
+      version: {type: string, default: "1.0.0"}
+      build_id: {type: string, default: "local"}
+      env: {type: string, default: "production"}
+    command: >
+      python mlops/pipelines/pipeline.py
+        --stage deploy
+        --version {version}
+        --build-id {build_id}
+        --env {env}
+
+  monitor:
+    parameters:
+      version: {type: string, default: "1.0.0"}
+      build_id: {type: string, default: "local"}
+      env: {type: string, default: "production"}
+    command: >
+      python mlops/pipelines/pipeline.py
+        --stage monitor
+        --version {version}
+        --build-id {build_id}
+        --env {env}
